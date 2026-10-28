@@ -1,0 +1,17 @@
+# ClusterIP, not LoadBalancer/NodePort: this is an internal recommendation
+# service meant to be called by other services in the cluster (e.g. a
+# product page backend), not exposed directly to the internet. Put an
+# Ingress or an API gateway in front of it if/when external access is
+# actually needed — that's a decision for the platform layer, not this
+# service's own manifest.
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-similarity
+spec:
+  selector:
+    app: product-similarity
+  ports:
+    - port: 80
+      targetPort: 8000
+  type: ClusterIP

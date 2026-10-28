@@ -1,0 +1,33 @@
+### Product Similarity Service — example requests
+### Requires the "REST Client" VS Code extension (by Huachao Mao).
+### With it installed, a clickable "Send Request" link appears above
+### each block below — click it to run that request and see the response
+### in a new VS Code tab, no terminal needed.
+###
+### Make sure the service is running first (either `uvicorn` or Docker —
+### see the main walkthrough) and listening on http://localhost:8000.
+
+### Health check — is the process alive at all?
+GET http://localhost:8000/healthz
+
+### Readiness check — has it finished loading the dataset?
+GET http://localhost:8000/readyz
+
+### The main deliverable: find 5 products similar to a real product_id
+GET http://localhost:8000/find_similar_products?product_id=26d41bdc1495de290bc8e6062d927729&num_similar=5
+
+### Same thing, asking for 10 instead of 5
+GET http://localhost:8000/find_similar_products?product_id=26d41bdc1495de290bc8e6062d927729&num_similar=10
+
+### Error case: a product_id that doesn't exist -> expect 404
+GET http://localhost:8000/find_similar_products?product_id=this-id-does-not-exist&num_similar=5
+
+### Error case: invalid num_similar (must be between 1 and 100) -> expect 422
+GET http://localhost:8000/find_similar_products?product_id=26d41bdc1495de290bc8e6062d927729&num_similar=0
+
+### NOTE on POST: this API only defines GET endpoints, per the assignment
+### spec ("GET /find_similar_products"). There is no POST route in this
+### service — a POST here would 405 (Method Not Allowed). If you want a
+### POST version added (e.g. accepting a JSON body like
+### {"product_id": "...", "num_similar": 5} instead of query params),
+### ask and it can be added as an additional endpoint.

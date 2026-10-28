@@ -1,0 +1,66 @@
+# Design notes:
+# - replicas: 2, not 1 — the whole point of containerizing is surviving a
+#   pod restart without downtime; 1 replica makes the Deployment a fancy
+#   way to still have a single point of failure.
+# - readinessProbe hits /readyz (feature-store-loaded check), NOT /healthz.
+#   Using /healthz for readiness would route traffic to a pod whose
+#   process is up but hasn't finished building the TF-IDF matrix yet,
+#   producing 503s under rolling deploys right when new pods come up.
+# - livenessProbe hits /healthz (process-alive check only) — liveness
+#   should never depend on a slow/degraded downstream dependency, or a
+#   transient slowdown turns into an unnecessary pod kill-and-restart
+#   loop.
+# - resources.requests/limits are set because this pod does real CPU work
+#   (TF-IDF fit + SVD on startup, FAISS HNSW search, optional CNN
+#   inference) — leaving requests unset lets the scheduler pack pods
+#   without reserving the CPU this service actually needs, and leaving
+#   limits unset risks one noisy pod starving its neighbors on CPU
+#   contention.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-similarity
+  labels:
+    app: product-similarity
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-similarity
+  template:
+    metadata:
+      labels:
+        app: product-similarity
+    spec:
+      containers:
+        - name: product-similarity
+          image: product-similarity:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            # Override to point at a mounted volume instead of the
+            # image-baked copy once the catalog is managed outside the
+            # image (see Dockerfile notes).
+            - name: PRODUCT_DATA_PATH
+              value: /app/data/marketing_sample_for_amazon_com-amazon_fashion_products__20200201_20200430__30k_data.ldjson
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
